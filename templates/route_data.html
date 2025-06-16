@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Route Data</title>
+    <style>
+        #save-button {
+            display: none;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='data_changes.js') }}" defer></script>
+</head>
+<body>
+    <a href="/back"><button type="button">Back</button></a>
+    <h2>Routes Overview</h2>
+
+    {% if routes %}
+        <!-- Detached update form -->
+        <form id="update-form" method="POST" action="/update_routes"></form>
+
+        <table border="1" cellpadding="4" cellspacing="0">
+            <thead>
+                <tr>
+                    <th>Route ID</th>
+                    <th>ELR</th>
+                    <th>Start Mileage</th>
+                    <th>End Mileage</th>
+                    {% if is_admin %}
+                        <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for route in routes %}
+                    <tr>
+                        <td>{{ route['route_id'] }}</td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="text"
+                                  class="track-change"
+                                  name="elr_{{ route['route_id'] }}"
+                                  value="{{ route['elr'] }}"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['ELR'] }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="number"
+                                  step="any"
+                                  class="track-change"
+                                  name="start_mileage_{{ route['route_id'] }}"
+                                  value="{{ route['start_mileage'] }}"
+                                  min="0"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['start_mileage'] }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="number"
+                                  step="any"
+                                  class="track-change"
+                                  name="end_mileage_{{ route['route_id'] }}"
+                                  value="{{ route['end_mileage'] }}"
+                                  min="0"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['end_mileage'] }}
+                            {% endif %}
+                        </td>
+
+                        {% if is_admin %}
+                        <td>
+                            <!-- DELETE FORM PER ROW -->
+                            <form
+                              method="POST"
+                              action="/delete_route/{{ route['route_id'] }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Are you sure you want to delete this route?');"
+                            >
+                                <button type="submit">Delete</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if is_admin %}
+            <br>
+            <!-- Save Changes button tied to update-form -->
+            <button type="submit" id="save-button" form="update-form">Save Changes</button>
+        {% endif %}
+    {% else %}
+        <p>No routes available.</p>
+    {% endif %}
+
+    <h2>Add New Route</h2>
+    <form action="{{ url_for('add_route') }}" method="POST">
+        <table cellpadding="4">
+            <tr>
+                <td><label for="route_id">Route ID:</label></td>
+                <td><input type="text" name="route_id" required></td>
+            </tr>
+            <tr>
+                <td><label for="elr">ELR:</label></td>
+                <td><input type="text" name="elr" required></td>
+            </tr>
+            <tr>
+                <td><label for="start_mileage">Start Mileage:</label></td>
+                <td><input type="number" step="any" name="start_mileage" min="0" required></td>
+            </tr>
+            <tr>
+                <td><label for="end_mileage">End Mileage:</label></td>
+                <td><input type="number" step="any" name="end_mileage" min="0" required></td>
+            </tr>
+            <tr>
+                <td colspan="2" style="text-align: left;">
+                    <br>
+                    <button type="submit">Add Route</button>
+                </td>
+            </tr>
+        </table>
+    </form>
+</body>
+</html>

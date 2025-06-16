@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>User Data</title>
+    <style>
+        #save-button {
+            display: none;
+        }
+    </style>
+    <script src="{{ url_for('static', filename='data_changes.js') }}" defer></script>
+</head>
+<body>
+    <a href="/back"><button type="button">Back</button></a>
+
+    <h2>Users Overview</h2>
+
+    {% if users %}
+        <!-- Detached update form -->
+        <form id="update-form" method="POST" action="/update_users"></form>
+
+        <table border="1" cellspacing="0" cellpadding="4">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Email</th>
+                    <th>Admin</th>
+                    {% if is_admin %}
+                        <th>Actions</th>
+                    {% endif %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for user in users %}
+                    <tr>
+                        <td>{{ user['user_id'] }}</td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="text"
+                                  class="track-change"
+                                  name="email_{{ user['user_id'] }}"
+                                  value="{{ user['email'] }}"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ user['email'] }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="number"
+                                  class="track-change"
+                                  name="admin_{{ user['user_id'] }}"
+                                  value="{{ user['admin'] }}"
+                                  min="0"
+                                  max="1"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ user['admin'] }}
+                            {% endif %}
+                        </td>
+
+                        {% if is_admin %}
+                        <td>
+                            <!-- DELETE FORM PER ROW -->
+                            <form
+                              method="POST"
+                              action="/delete_user/{{ user['user_id'] }}"
+                              style="display:inline;"
+                              onsubmit="return confirm('Are you sure you want to delete user {{ user.user_id }}?');"
+                            >
+                                <button type="submit">Delete</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        {% if is_admin %}
+            <br>
+            <!-- Save Changes button tied to update-form -->
+            <button type="submit" id="save-button" form="update-form">Save Changes</button>
+        {% endif %}
+    {% else %}
+        <p>No users available.</p>
+    {% endif %}
+</body>
+</html>
