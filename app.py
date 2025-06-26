@@ -535,15 +535,14 @@ def add_route():
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
-    route_id = request.form['route_id']
     route_elr = request.form['elr']
     start_mileage = request.form['start_mileage']
     end_mileage = request.form['end_mileage']
 
     conn = get_db_connection()
     conn.execute(
-        'INSERT INTO routes (route_id, elr, start_mileage, end_mileage) VALUES (?, ?, ?, ?)',
-        (route_id, route_elr, start_mileage, end_mileage)
+        'INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)',
+        (route_elr, start_mileage, end_mileage)
     )
     conn.commit()
     conn.close()
