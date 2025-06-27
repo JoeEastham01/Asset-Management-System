@@ -1,21 +1,21 @@
-<!DOCTYPE html>
 <html>
 <head>
     <title>Exam Data</title>
     <style>
-        /* Hide the Save button until a change is detected */
         #save-button {
             display: none;
         }
     </style>
-    <script src="{{ url_for('static', filename='data_changes.js') }}" defer></script>
+	
+	<script src="{{ url_for('static', filename='data_changes.js') }}" defer></script>
+	<script src="{{ url_for('static', filename='on_exit.js') }}" defer></script>
+
 </head>
 <body>
     <a href="/back"><button type="button">Back</button></a>
     <h2>Exam Overview</h2>
 
     {% if exams %}
-        <!-- This form is now “detached” from the table. -->
         <form id="update-form" method="POST" action="/update_exams"></form>
 
         <table border="1" cellpadding="4" cellspacing="0">
@@ -39,7 +39,6 @@
                     <tr>
                         <td>{{ exam['exam_id'] }}</td>
 
-                        <!-- USER ID (dropdown/input) now carries form="update-form" -->
                         <td>
                             {% if is_admin %}
                                 <select
@@ -65,7 +64,6 @@
                             {% endif %}
                         </td>
 
-                        <!-- ROUTE ID (dropdown) now carries form="update-form" -->
                         <td>
                             {% if is_admin %}
                                 <select
@@ -91,10 +89,8 @@
                             {% endif %}
                         </td>
 
-                        <!-- ASSET COUNT (read-only) -->
                         <td>{{ exam['asset_count'] }}</td>
 
-                        <!-- GRADE (dropdown) now carries form="update-form" -->
                         <td>
                             {% if is_admin %}
                                 <select
@@ -117,7 +113,6 @@
                             {% endif %}
                         </td>
 
-                        <!-- EXAM DATE (date input) now carries form="update-form" -->
                         <td>
                             {% if is_admin %}
                                 <input
@@ -138,7 +133,6 @@
                             {% endif %}
                         </td>
 
-                        <!-- COMPLIANCE DATE (readonly date) -->
                         <td>
                             <input
                               type="date"
@@ -148,7 +142,6 @@
                             >
                         </td>
 						
-						<!-- COMPLIANCE Status (readonly) -->
 						<td>
 							{% if exam['is_compliant'] %}
 								<span style="color: green; font-weight: bold;">Compliant</span>
@@ -158,7 +151,6 @@
 						</td>
 
                         {% if is_admin %}
-                        <!-- DELETE FORM PER ROW (separate from the “update-form”) -->
                         <td>
                             <form
                               method="POST"
@@ -177,8 +169,9 @@
 
         {% if is_admin %}
             <br>
-            <!-- “Save Changes” button now explicitly targets form="update-form” -->
             <button type="submit" id="save-button" form="update-form">Save Changes</button>
+
+
         {% endif %}
 
     {% else %}
