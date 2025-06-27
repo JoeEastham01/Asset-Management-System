@@ -101,7 +101,16 @@ def register():
         if Valid == True:
             try:
                 conn = get_db_connection()
-                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, 0))
+                cursor = conn.cursor()
+
+                # Get the current highest ID
+                cursor.execute('SELECT MAX(user_id) FROM users')
+                max_id = cursor.fetchone()[0]
+                if max_id is None:
+                    max_id = 0
+
+                cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'users'", (max_id,))
+                cursor.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, 0))
                 conn.commit()
                 conn.close()
                 return redirect(url_for('login'))
@@ -133,6 +142,15 @@ def admin_register():
         if Valid == True:
             try:
                 conn = get_db_connection()
+                cursor = conn.cursor()
+
+                # Get the current highest ID
+                cursor.execute('SELECT MAX(user_id) FROM users')
+                max_id = cursor.fetchone()[0]
+                if max_id is None:
+                    max_id = 0
+
+                cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'users'", (max_id,)) 
                 conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, admin))
                 conn.commit()
                 conn.close()
