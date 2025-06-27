@@ -19,9 +19,57 @@ bcrypt = Bcrypt(app)
 # Connects to the applications SQLite database
 def get_db_connection():
     conn = sqlite3.connect('database/RailAssetManagement.db')
+    conn.execute('PRAGMA foreign_keys = ON')
     conn.row_factory = sqlite3.Row
     return conn
-    
+
+
+
+GRADE_MONTHS = {
+    'A': 36, 'B': 30, 'C': 24, 'D': 18, 'E': 12, 'F': 6
+}
+
+ASSET_OFFSET_MONTHS = {
+    'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6
+}
+
+def calculate_compliance_date(grade, exam_date_str, offset=None):
+    try:
+        exam_date = datetime.strptime(exam_date_str, '%Y-%m-%d')
+        months = GRADE_MONTHS.get(grade.upper())
+        if months:
+            compliance_date = exam_date + relativedelta(months=months)
+            if offset:
+                compliance_date = compliance_date - relativedelta(months=offset)
+            return compliance_date.date()
+    except Exception as e:
+        print(f"Error: {e}")
+    return None
+
+
+
+def reset_autoincrement(conn, table, id_column):
+    cursor = conn.cursor()
+
+    get_max_id = f'SELECT MAX({id_column}) FROM {table}'
+    cursor.execute(get_max_id)
+    max_id = cursor.fetchone()[0]
+    if max_id is None:
+        max_id = 0
+
+    cursor.execute(
+        "UPDATE sqlite_sequence SET seq = ? WHERE name = ?",
+        (max_id, table)
+    )
+    conn.commit()
+
+
+
+
+#-------------------------------------------------------------------------------------------------------
+
+
+
 
 # Route for the application home page, launch page
 @app.route('/')
@@ -101,16 +149,8 @@ def register():
         if Valid == True:
             try:
                 conn = get_db_connection()
-                cursor = conn.cursor()
-
-                # Get the current highest ID
-                cursor.execute('SELECT MAX(user_id) FROM users')
-                max_id = cursor.fetchone()[0]
-                if max_id is None:
-                    max_id = 0
-
-                cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'users'", (max_id,))
-                cursor.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, 0))
+                reset_autoincrement(conn, 'users', 'user_id')
+                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, 0))
                 conn.commit()
                 conn.close()
                 return redirect(url_for('login'))
@@ -142,15 +182,7 @@ def admin_register():
         if Valid == True:
             try:
                 conn = get_db_connection()
-                cursor = conn.cursor()
-
-                # Get the current highest ID
-                cursor.execute('SELECT MAX(user_id) FROM users')
-                max_id = cursor.fetchone()[0]
-                if max_id is None:
-                    max_id = 0
-
-                cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'users'", (max_id,)) 
+                reset_autoincrement(conn, 'users', 'user_id')
                 conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, admin))
                 conn.commit()
                 conn.close()
@@ -263,20 +295,9 @@ def add_asset():
     comments = request.form['comments']
 
     conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Get the current highest ID
-    cursor.execute('SELECT MAX(asset_id) FROM assets')
-    max_id = cursor.fetchone()[0]
-    if max_id is None:
-        max_id = 0
-
-    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'assets'", (max_id,))
+    reset_autoincrement(conn, 'assets', 'asset_id')
         
-    cursor.execute(
-        'INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)',
-        (exam_id, asset_type, grade, comments)
-    )
+    conn.execute('INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)', (exam_id, asset_type, grade, comments))
     conn.commit()
     conn.close()
     return redirect(url_for('asset_data'))
@@ -488,20 +509,9 @@ def add_exam():
     compliance_date = calculate_compliance_date(grade, current_date)
 
     conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Get the current highest ID
-    cursor.execute('SELECT MAX(exam_id) FROM exams')
-    max_id = cursor.fetchone()[0]
-    if max_id is None:
-        max_id = 0
-
-    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'exams'", (max_id,))
+    reset_autoincrement(conn, 'exams', 'exam_id')
     
-    cursor.execute(
-        'INSERT INTO exams (user_id, route_id, grade, date, compliance_date) VALUES (?, ?, ?, ?, ?)',
-        (user_id, route, grade, current_date, compliance_date)
-    )
+    conn.execute('INSERT INTO exams (user_id, route_id, grade, date, compliance_date) VALUES (?, ?, ?, ?, ?)', (user_id, route, grade, current_date, compliance_date))
     conn.commit()
     conn.close()
 
@@ -520,26 +530,7 @@ def delete_exam(exam_id):
 
 
 
-GRADE_MONTHS = {
-    'A': 36, 'B': 30, 'C': 24, 'D': 18, 'E': 12, 'F': 6
-}
 
-ASSET_OFFSET_MONTHS = {
-    'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6
-}
-
-def calculate_compliance_date(grade, exam_date_str, offset=None):
-    try:
-        exam_date = datetime.strptime(exam_date_str, '%Y-%m-%d')
-        months = GRADE_MONTHS.get(grade.upper())
-        if months:
-            compliance_date = exam_date + relativedelta(months=months)
-            if offset:
-                compliance_date = compliance_date - relativedelta(months=offset)
-            return compliance_date.date()
-    except Exception as e:
-        print(f"Error: {e}")
-    return None
 
 
 #-------------------------------------------------------------------------------------------------------
@@ -612,20 +603,9 @@ def add_route():
     end_mileage = request.form['end_mileage']
 
     conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Get the current highest ID
-    cursor.execute('SELECT MAX(route_id) FROM routes')
-    max_id = cursor.fetchone()[0]
-    if max_id is None:
-        max_id = 0
-
-    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'routes'", (max_id,))
+    reset_autoincrement(conn, 'routes', 'route_id')
     
-    cursor.execute(
-        'INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)',
-        (route_elr, start_mileage, end_mileage)
-    )
+    conn.execute('INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)', (route_elr, start_mileage, end_mileage))
     conn.commit()
     conn.close()
 
