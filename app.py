@@ -7,26 +7,30 @@ from datetime import date
 import re
 
 
+# Flask app setup
 app = Flask(__name__)
 app.secret_key = 'supersecretkey2f'
+
+# Password encryption
 bcrypt = Bcrypt(app)
 
 
 
-
+# Connects to the applications SQLite database
 def get_db_connection():
     conn = sqlite3.connect('database/RailAssetManagement.db')
     conn.row_factory = sqlite3.Row
     return conn
+    
 
-
-
+# Route for the application home page, launch page
 @app.route('/')
 def home():
     return render_template('home.html')
+        
 
 
-
+# Login function verifies credentials, and redirects to the appropriate dashboard
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -37,10 +41,12 @@ def login():
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
 
-        if user and bcrypt.check_password_hash(user['password'], password):
+        # Check if user exists and password matches hashed password in DB
+        if user and bcrypt.check_password_hash(user['password'], password): 
             session['user_id'] = user['user_id']
             session['email'] = user['email']
 
+            # Redirect admins and regular users to their respective dashboards
             if user['admin'] == True:
                 return redirect(url_for('admin_dashboard'))
             else:
@@ -49,11 +55,40 @@ def login():
             flash('Invalid email or password')
     return render_template('login.html')
 
+'''
+More detailed error feedback to indicate if the password or email is icorrect,
+is avoided to prevent giving clues to attackers about valid accounts.
+'''
 
 
 #-------------------------------------------------------------------------------------------------------
 
 
+def validate_credentials_format(email, password):
+    special_characters = r'[!@#$%^&*(),.?\":{}|<>]'
+    Valid = True
+
+    # email validation to check for '@' and accepted domains
+    if '@' not in email:
+        Valid = False
+    if '.com' not in email:
+        if '.co.uk' not in email:
+            Valid = False
+    if Valid == False:
+        flash('Please enter a valid email address')
+        
+    # Password length and special character validation
+    if len(password) < 5:
+        Valid = False
+        flash('Please enter a password at least 5 charactors long')
+    elif not re.search(special_characters, password):
+        Valid = False
+        flash('Password must contain at least one special character [!@#$%^&*(),.?\":{}|<>]')   
+
+    return Valid
+
+
+# User registration route handling both displaying the form and processing form submission
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -61,24 +96,8 @@ def register():
         password = request.form['password']
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        special_characters = r'[!@#$%^&*(),.?\":{}|<>]'
-
-        Valid = True
-        if '@' not in email:
-            Valid = False
-        if '.com' not in email:
-            if '.co.uk' not in email:
-                Valid = False
-        if Valid == False:
-            flash('Please enter a valid email address')
-
-        if len(password) < 5:
-            Valid = False
-            flash('Please enter a password at least 5 charactors long')
-        elif not re.search(special_characters, password):
-            Valid = False
-            flash('Password must contain at least one special character [!@#$%^&*(),.?\":{}|<>]')
-            
+        Valid = validate_credentials_format(email, password)
+    
         if Valid == True:
             try:
                 conn = get_db_connection()
@@ -88,26 +107,42 @@ def register():
                 return redirect(url_for('login'))
             except sqlite3.IntegrityError:
                 flash('Email already registered')
-    return render_template('register.html')
+
+    # Render registration form if GET request or validation failed
+    return render_template('register.html') 
+
+'''
+Further validation could be included such as sending an email and generating a code
+to confirm a valid address and then activate the account.
+'''
 
 
-
+# Admin user registration
 @app.route('/admin_register', methods=['GET', 'POST'])
 def admin_register():
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
+
+        # Get admin flag from form, default to 0 (non-admin)
         admin = int(request.form.get('admin', 0))
-        try:
-            conn = get_db_connection()
-            conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, admin))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
-            flash('Email already registered')
+
+        Valid = validate_credentials_format(email, password)
+
+        if Valid == True:
+            try:
+                conn = get_db_connection()
+                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, admin))
+                conn.commit()
+                conn.close()
+                return redirect(url_for('login'))
+            except sqlite3.IntegrityError:
+                flash('Email already registered')
+
+    # Render admin registration form if GET or on failure        
     return render_template('admin_register.html')
+
 
 
 #-------------------------------------------------------------------------------------------------------
@@ -141,7 +176,7 @@ def asset_data():
     assets = conn.execute('SELECT * FROM assets').fetchall()
     exams = conn.execute('SELECT exam_id FROM exams').fetchall()
     conn.close()
-    is_admin = admin_status()
+    is_admin = admin_status()   
     
     return render_template('asset_data.html', exams=exams, assets=assets, is_admin=is_admin)   
 
@@ -210,7 +245,17 @@ def add_asset():
     comments = request.form['comments']
 
     conn = get_db_connection()
-    conn.execute(
+    cursor = conn.cursor()
+
+    # Get the current highest ID
+    cursor.execute('SELECT MAX(asset_id) FROM assets')
+    max_id = cursor.fetchone()[0]
+    if max_id is None:
+        max_id = 0
+
+    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'assets'", (max_id,))
+        
+    cursor.execute(
         'INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)',
         (exam_id, asset_type, grade, comments)
     )
@@ -425,7 +470,17 @@ def add_exam():
     compliance_date = calculate_compliance_date(grade, current_date)
 
     conn = get_db_connection()
-    conn.execute(
+    cursor = conn.cursor()
+
+    # Get the current highest ID
+    cursor.execute('SELECT MAX(exam_id) FROM exams')
+    max_id = cursor.fetchone()[0]
+    if max_id is None:
+        max_id = 0
+
+    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'exams'", (max_id,))
+    
+    cursor.execute(
         'INSERT INTO exams (user_id, route_id, grade, date, compliance_date) VALUES (?, ?, ?, ?, ?)',
         (user_id, route, grade, current_date, compliance_date)
     )
@@ -479,7 +534,6 @@ def route_data():
     
     conn = get_db_connection()
     routes = conn.execute('SELECT * FROM routes').fetchall()
-    #exams = conn.execute('SELECT exam_id FROM exams').fetchall()
     conn.close()
     is_admin = admin_status()
     
@@ -540,7 +594,17 @@ def add_route():
     end_mileage = request.form['end_mileage']
 
     conn = get_db_connection()
-    conn.execute(
+    cursor = conn.cursor()
+
+    # Get the current highest ID
+    cursor.execute('SELECT MAX(route_id) FROM routes')
+    max_id = cursor.fetchone()[0]
+    if max_id is None:
+        max_id = 0
+
+    cursor.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'routes'", (max_id,))
+    
+    cursor.execute(
         'INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)',
         (route_elr, start_mileage, end_mileage)
     )
@@ -553,9 +617,6 @@ def add_route():
 
 
 #-------------------------------------------------------------------------------------------------------
-
-
-
 
 
 
