@@ -47,7 +47,7 @@ def calculate_compliance_date(grade, exam_date_str, offset=None):
     return None
 
 
-
+# reset table autoincrement on id
 def reset_autoincrement(conn, table, id_column):
     cursor = conn.cursor()
 
@@ -136,7 +136,7 @@ def validate_credentials_format(email, password):
     return Valid
 
 
-# User registration route handling both displaying the form and processing form submission
+# User registration route 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -157,7 +157,6 @@ def register():
             except sqlite3.IntegrityError:
                 flash('Email already registered')
 
-    # Render registration form if GET request or validation failed
     return render_template('register.html') 
 
 '''
@@ -190,7 +189,6 @@ def admin_register():
             except sqlite3.IntegrityError:
                 flash('Email already registered')
 
-    # Render admin registration form if GET or on failure        
     return render_template('admin_register.html')
 
 
@@ -216,7 +214,7 @@ def admin_dashboard():
 
 #-------------------------------------------------------------------------------------------------------
 
-
+# asset data overview
 @app.route('/asset_data')
 def asset_data():
     if 'user_id' not in session:
@@ -231,7 +229,7 @@ def asset_data():
     return render_template('asset_data.html', exams=exams, assets=assets, is_admin=is_admin)   
 
 
-
+# update 
 def update_asset(asset_id, exam_id, asset_type, grade, comments):
     conn = get_db_connection()
     conn.execute('''
@@ -264,11 +262,14 @@ def update_assets():
             exam_id = exam['exam_id']
             exam_grade = exam['grade']
             exam_date = exam['date']
+            
             conn = get_db_connection()
             row = conn.execute('SELECT MAX(grade) AS worst_grade FROM assets WHERE exam_id = ?', (exam_id,)).fetchone()
+            
             worst = row['worst_grade'] if row and row['worst_grade'] else None
             offset = ASSET_OFFSET_MONTHS.get(worst.upper(), 0) if worst else 0
             compliance_date = calculate_compliance_date(exam_grade, exam_date, offset)
+            
             conn = get_db_connection()
             conn.execute('''
                 UPDATE exams
@@ -283,7 +284,7 @@ def update_assets():
     return redirect('/asset_data')
 
 
-
+# Add a new asset to the database
 @app.route('/add_asset', methods=['POST'])
 def add_asset():
     if 'user_id' not in session:
@@ -295,7 +296,7 @@ def add_asset():
     comments = request.form['comments']
 
     conn = get_db_connection()
-    reset_autoincrement(conn, 'assets', 'asset_id')
+    reset_autoincrement(conn, 'assets', 'asset_id') 
         
     conn.execute('INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)', (exam_id, asset_type, grade, comments))
     conn.commit()
@@ -311,7 +312,13 @@ def delete_asset(asset_id):
     conn.commit()
     conn.close()
     flash(f'Asset {asset_id} deleted successfully.')
-    return redirect('/asset_data')  
+    return redirect('/asset_data')
+
+
+'''
+With forgien key constrainsts on the database, deleting an exam record will delete all associated assets,
+and deleting a route, will delete the associated exam. Cascade delete.
+'''
 
 
 
@@ -489,14 +496,14 @@ def update_exams():
             compliance_date = calculate_compliance_date(grade, date, offset)
         except Exception as e:
             print(f'[update_exams] Error parsing dates or calculating compliance date for exam ID {exam_id}: {e}')
-            compliance_date = date #None
+            compliance_date = date 
             
-        # Then update the DB using SQL
         update_exam(exam_id, user_id, route_id, grade, date, compliance_date)
 
     return redirect('/exam_data')  
 
 
+# adds a new exam record and calls compliance function
 @app.route('/add_exam', methods=['POST'])
 def add_exam():
     if 'user_id' not in session:
@@ -518,7 +525,7 @@ def add_exam():
     return redirect(url_for('exam_data'))
 
 
-
+# delete exam record
 @app.route('/delete_exam/<int:exam_id>', methods=['POST'])
 def delete_exam(exam_id):
     conn = get_db_connection()
@@ -535,7 +542,7 @@ def delete_exam(exam_id):
 
 #-------------------------------------------------------------------------------------------------------
 
-
+# route data overview
 @app.route('/route_data')
 def route_data():
     if 'user_id' not in session:
@@ -549,7 +556,7 @@ def route_data():
     return render_template('route_data.html', routes=routes, is_admin=is_admin) 
 
 
-
+# delete route data
 @app.route('/delete_route/<int:route_id>', methods=['POST'])
 def delete_route(route_id):
     conn = get_db_connection()
@@ -560,7 +567,7 @@ def delete_route(route_id):
     return redirect('/route_data') 
 
 
-
+# comit update function
 def update_route(route_id, route_elr, route_start_mileage, route_end_mileage):
     conn = get_db_connection()
     conn.execute('''
@@ -574,7 +581,7 @@ def update_route(route_id, route_elr, route_start_mileage, route_end_mileage):
     conn.close()
 
 
-
+# update existing route data
 @app.route('/update_routes', methods=['POST'])
 def update_routes():
     conn = get_db_connection()
@@ -592,7 +599,7 @@ def update_routes():
 
 
 
-
+# add new route
 @app.route('/add_route', methods=['POST'])
 def add_route():
     if 'user_id' not in session:
