@@ -1,18 +1,70 @@
 <html>
 <head>
     <title>Dashboard</title>
-	<script src="{{ url_for('static', filename='on_exit.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='on_exit.js') }}" defer></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f8f9fa;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 40px;
+        }
+        .dashboard-container {
+            display: inline-block;
+            background: #fff;
+            padding: 30px 50px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn {
+            display: block;
+            width: 250px;
+            margin: 15px auto;
+            padding: 12px 0;
+            border: none;
+            border-radius: 6px;
+            background-color: #007bff;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .logout-form {
+            margin-top: 30px;
+        }
+        .logout-form button {
+            background-color: #dc3545;
+        }
+        .logout-form button:hover {
+            background-color: #b52d3b;
+        }
+        .email {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 30px;
+        }
+    </style>
 </head>
 <body>
-    <h1>Welcome, {{ email }}!</h1>
-	<a href="/exam_data"><button>View Exam Data</button></a><br><br>
-	<a href="/asset_data"><button>View Asset Data</button></a><br><br>
-	<a href="/route_data"><button>View Route Data</button></a><br><br>
-	<a href="/user_data"><button>View User Data</button></a><br><br>
-	<form action="/logout" method="GET" class="logout-form">
-		<button type="submit" class="confirm-logout">Logout</button>
-	</form>
-	
+    <div class="dashboard-container">
+        <h1>Welcome, {{ email }}!</h1>
+        <div class="email">{{ email }}</div>
+
+        <a href="/exam_data"><button class="btn">View Exam Data</button></a>
+        <a href="/asset_data"><button class="btn">View Asset Data</button></a>
+        <a href="/route_data"><button class="btn">View Route Data</button></a>
+        <a href="/user_data"><button class="btn">View User Data</button></a>
+
+        <form action="/logout" method="GET" class="logout-form">
+            <button type="submit" class="btn">Logout</button>
+        </form>
+    </div>
 </body>
 </html>
-
