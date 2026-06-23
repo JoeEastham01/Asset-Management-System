@@ -101,6 +101,8 @@ def login():
         user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
         conn.close()
 
+        flash('') 
+
         # Check if user exists and password matches hashed password in DB
         if user and bcrypt.check_password_hash(user['password'], password): 
             session['user_id'] = user['user_id']
@@ -450,64 +452,127 @@ def update_users():
 
 @app.route('/exam_data')
 def exam_data():
-    """Exam data overview page"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
+
     conn = get_db_connection()
 
-    # Get exam data with asset count
-    raw_exams = conn.execute('''
-        SELECT 
-            exams.*,
-            (SELECT COUNT(*) FROM assets WHERE assets.exam_id = exams.exam_id) AS asset_count
-        FROM exams
+    search = request.args.get('search', '').strip()
+    selected_elr = request.args.get('elr', '').strip()
+
+    exams = []
+    allowed_routes = {}
+    available_routes = []
+
+    # Load ELRs for dropdown
+    all_elrs = conn.execute('''
+        SELECT DISTINCT elr
+        FROM routes
+        WHERE elr IS NOT NULL AND elr != ''
+        ORDER BY elr
     ''').fetchall()
 
-    today = date.today()
-    exams = []
+    # Build route filter (ONLY ELR now)
+    route_query = '''
+        SELECT route_id
+        FROM routes
+        WHERE 1=1
+    '''
+    params = []
 
-    # Process exam data and check compliance status
-    for row in raw_exams:
-        exam = dict(row)  # Convert to mutable dictionary
-        compliance_date = exam['compliance_date']
-        if isinstance(compliance_date, str):
-            compliance_date = date.fromisoformat(compliance_date)
-        
-        exam['is_compliant'] = today <= compliance_date if compliance_date else False
-        exams.append(exam)
+    if selected_elr:
+        route_query += ' AND elr = ?'
+        params.append(selected_elr)
 
-    # Get route assignment logic
-    all_routes = conn.execute('SELECT * FROM routes').fetchall()
-    used_ids = {exam['route_id'] for exam in exams}
-    available_routes = [route for route in all_routes if route['route_id'] not in used_ids]
+    route_matches = conn.execute(route_query, params).fetchall()
+    route_ids = [r['route_id'] for r in route_matches]
 
-    # Build per-exam allowed route lists (own + unused)
-    allowed_routes = {}
-    for exam in exams:
-        this_id = exam['exam_id']
-        this_route = exam['route_id']
-        used_except_self = used_ids - {this_route}
+    # Build exam query
+    if route_ids:
+        exam_query = f'''
+            SELECT
+                exams.*,
+                (SELECT COUNT(*)
+                 FROM assets
+                 WHERE assets.exam_id = exams.exam_id) AS asset_count
+            FROM exams
+            WHERE exams.route_id IN ({','.join(['?'] * len(route_ids))})
+        '''
 
-        allowed = [
+        exam_params = route_ids
+
+        # SEARCH NOW ONLY TARGETS exam_id
+        if search:
+            exam_query += ' AND CAST(exams.exam_id AS TEXT) = ?'
+            exam_params.append(search)
+
+        exam_query += ' LIMIT 100'
+
+        raw_exams = conn.execute(exam_query, exam_params).fetchall()
+
+        today = date.today()
+
+        for row in raw_exams:
+            exam = dict(row)
+
+            compliance_date = exam['compliance_date']
+            if isinstance(compliance_date, str):
+                compliance_date = date.fromisoformat(compliance_date)
+
+            exam['is_compliant'] = (
+                compliance_date is not None and today <= compliance_date
+            )
+
+            exams.append(exam)
+
+        # route + permissions logic
+        all_routes = conn.execute('SELECT * FROM routes').fetchall()
+        used_ids = {exam['route_id'] for exam in exams}
+
+        available_routes = [
             r for r in all_routes
-            if r['route_id'] not in used_except_self
+            if r['route_id'] not in used_ids
         ]
-        allowed_routes[this_id] = allowed
 
+        allowed_routes = {}
+
+        for exam in exams:
+            this_id = exam['exam_id']
+            this_route = exam['route_id']
+
+            used_except_self = used_ids - {this_route}
+
+            allowed_routes[this_id] = [
+                r for r in all_routes
+                if r['route_id'] not in used_except_self
+            ]
+
+    # Always available
     users = conn.execute('SELECT user_id, email FROM users').fetchall()
-    routes = conn.execute('SELECT route_id, ELR FROM routes').fetchall()
+    routes = conn.execute('SELECT route_id, elr FROM routes').fetchall()
+
     conn.close()
-    
+
     is_admin = admin_status()
     current_date = date.today().isoformat()
-    
-    return render_template('exam_data.html', email=session['email'], exams=exams, users=users, 
-                         routes=routes, allowed_routes=allowed_routes, available_routes=available_routes, 
-                         is_admin=is_admin, current_date=current_date)   
+
+    return render_template(
+        'exam_data.html',
+        email=session['email'],
+        exams=exams,
+        users=users,
+        routes=routes,
+        all_elrs=all_elrs,
+        selected_elr=selected_elr,
+        allowed_routes=allowed_routes,
+        available_routes=available_routes,
+        is_admin=is_admin,
+        current_date=current_date
+    )
 
 
-def update_exam(exam_id, user_id, route_id, grade, date, compliance_date):
+
+def update_exam(exam_id, user_id, route_id, grade, date, compliance_date, status):
     """Update exam record in database"""
     conn = get_db_connection()
     conn.execute('''
@@ -516,9 +581,10 @@ def update_exam(exam_id, user_id, route_id, grade, date, compliance_date):
             route_id = ?,
             grade = ?,
             date = ?,
-            compliance_date = ?
+            compliance_date = ?,
+            status = ?
         WHERE exam_id = ?
-    ''', (user_id, route_id, grade, date, compliance_date, exam_id))
+    ''', (user_id, route_id, grade, date, compliance_date, status, exam_id))
     conn.commit()
     conn.close()
 
@@ -538,7 +604,7 @@ def update_exams():
         user_id = request.form.get(f'user_id_{exam_id}')
         route_id = request.form.get(f'route_id_{exam_id}')
         grade = request.form.get(f'grade_{exam_id}')
-        date = request.form.get(f'date_{exam_id}')
+        exam_date = request.form.get(f'date_{exam_id}')
 
         # Look up worst asset grade for this exam
         conn = get_db_connection()
@@ -551,12 +617,19 @@ def update_exams():
         offset = ASSET_OFFSET_MONTHS.get(worst.upper(), 0) if worst else 0
         
         try:
-            compliance_date = calculate_compliance_date(grade, date, offset)
+            compliance_date = calculate_compliance_date(grade, exam_date, offset)
         except Exception as e:
             print(f'[update_exams] Error calculating compliance date for exam ID {exam_id}: {e}')
             compliance_date = None  # FIX: Set to None instead of date string
             
-        update_exam(exam_id, user_id, route_id, grade, date, compliance_date)
+        today = date.today()
+         
+        if compliance_date:
+            status = 'Compliant' if today <= compliance_date else 'Non-Compliant'
+        else:
+            status = 'Non-Compliant'
+         
+        update_exam(exam_id, user_id, route_id, grade, exam_date, compliance_date, status)
 
     flash('Exams updated successfully!')  # ADD: Success message
     return redirect('/exam_data')  
@@ -598,6 +671,61 @@ def delete_exam(exam_id):
     flash(f'Exam {exam_id} deleted successfully.')  # FIX: Change "User" to "Exam"
     return redirect('/exam_data')
     
+
+
+
+
+@app.route('/track_section_record')
+def track_section_record():
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+        
+    # 1. Pull metadata from URL arguments
+    bid = request.args.get('bid', 'Unknown Track')
+    description = request.args.get('description', 'Unknown Track')
+    route_type = request.args.get('route_type', 'Unknown')
+    speedband = request.args.get('speedband', 'Unknown')
+    route_id = request.args.get('ogr_fid', None) # Read the database identifier
+
+    # 2. Query the DB using the track identifier if available
+    exam_record = None
+    if route_id:
+        conn = get_db_connection()
+        exam_record = conn.execute('SELECT * FROM exams WHERE route_id = ?', (route_id,)).fetchone()
+        conn.close()
+
+    # 3. Fallback safely if no row is returned by the database query
+    if exam_record:
+        examiner = exam_record['examiner']
+        exam_date = exam_record['exam_date']
+        compliance_date = exam_record['compliance_date']
+        grade = exam_record['grade']
+    else:
+        examiner = "No Active Record"
+        exam_date = "N/A"
+        compliance_date = "N/A"
+        grade = "N/A"
+
+    # 4. Optional: Update session variables if your app tracking needs them
+    session['examiner'] = examiner
+    session['exam_date'] = exam_date
+    session['compliance_date'] = compliance_date
+    session['grade'] = grade
+    
+    return render_template(
+        'track_section_record.html', 
+        bid=bid, 
+        description=description, 
+        route_type=route_type, 
+        speedband=speedband,
+        examiner=examiner, 
+        exam_date=exam_date, 
+        compliance_date=compliance_date, 
+        grade=grade
+    )
+
+
+
     
     
 @app.route('/view_exam/<int:exam_id>', methods=['POST'])   

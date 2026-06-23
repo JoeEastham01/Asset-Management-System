@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Section Record - {{ bid }}</title>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="{{ url_for('static', filename='on_exit.js') }}" defer></script>
+</head>
+
+<body class="dashboard-body record-page-body"> 
+
+    <div class="top-navbar">
+        <h1>Track Section: {{ bid }}</h1>
+        
+        <div class="horizontal-tabs">
+            <a href="/dashboard"><button class="btn-menu">Back to Map</button></a>
+            <a href="/exam_data"><button class="btn-menu">View Exam Data</button></a>
+            <a href="/asset_data"><button class="btn-menu">View Asset Data</button></a>
+            <a href="/route_data"><button class="btn-menu">View Route Data</button></a>
+            <a href="/user_data"><button class="btn-menu">View User Data</button></a>
+            
+            <form action="/logout" method="GET" class="logout-form-inline">
+                <button type="submit" class="btn-logout">Logout</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="record-container">
+        
+        <div class="cards-row">
+            
+            <div class="record-card">
+                <h2 class="record-title">Track Section Details</h2>
+                
+                <div class="attribute-grid">
+                    
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Track Boundary ID</strong>
+                        <span class="attribute-value dynamic-highlight">{{ bid }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Description</strong>
+                        <span class="attribute-value">{{ description }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Route Type</strong>
+                        <span class="attribute-value">{{ route_type }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Speed Band</strong>
+                        <span class="attribute-value">{{ speedband }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label empty">Inspection Date</strong>
+                        <span class="attribute-value placeholder">Placeholder (Connect DB)</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label empty">Grade</strong>
+                        <span class="attribute-value placeholder">Placeholder (Connect DB)</span>
+                    </div>
+
+                </div>
+            </div>
+            
+            <div class="record-card">
+                <h2 class="record-title">Inspection Details</h2>
+                
+                <div class="attribute-grid">
+                    
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Assigned Examiner</strong>
+                        <span class="attribute-value dynamic-highlight">{{ examiner }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Inspection Date</strong>
+                        <span class="attribute-value">{{ exam_date }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Compliance Target</strong>
+                        <span class="attribute-value">{{ compliance_date }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label">Assigned Asset Grade</strong>
+                        <span class="attribute-value">{{ grade }}</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label empty">Inspection Date</strong>
+                        <span class="attribute-value placeholder">Placeholder (Connect DB)</span>
+                    </div>
+
+                    <div class="attribute-box">
+                        <strong class="attribute-label empty">Grade</strong>
+                        <span class="attribute-value placeholder">Placeholder (Connect DB)</span>
+                    </div>
+
+                </div>
+            </div>        
+            
+        </div> 
+        
+    </div>
+
+</body>
+</html>
+
+
+
+

@@ -95,7 +95,32 @@
     <a href="/back"><button type="button" class="back-btn">Back</button></a>
 
     <div class="container">
-        <h2>Exam Overview</h2>
+        <h2>Exam Overview</h2> 
+
+        <form method="GET" action="/exam_data" style="margin-bottom: 15px; display:flex; gap:10px; align-items:center;">
+
+            <input type="text" name="search"
+                   placeholder="Search ELR / mileage..."
+                   value="{{ request.args.get('search', '') }}">
+
+            <select name="elr">
+                <option value="">All ELRs</option>
+                {% for r in all_elrs %}
+                    <option value="{{ r.elr }}"
+                        {% if selected_elr == r.elr %}selected{% endif %}>
+                        {{ r.elr }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Search</button>
+
+            <a href="/exam_data">
+                <button type="button">Reset</button>
+            </a>
+
+        </form>
+                
 
         {% if exams %}
             <form id="update-form" method="POST" action="/update_exams"></form>
@@ -172,7 +197,7 @@
                             {% if is_admin %}
                                 <input type="date" name="date_{{ exam['exam_id'] }}" form="update-form" class="track-change" value="{{ exam['date'] }}" max="{{ current_date }}">
                             {% else %}
-                                <input type="date" class="track-change" value="{{ exam['date'] }}" readonly>
+                                <input type="date" class="track-change" value="{{ exam['exam_date'] }}" readonly>
                             {% endif %}
                         </td>
 
@@ -246,10 +271,6 @@
                             {% endfor %}
                         </select>
                     </td>
-                </tr>
-                <tr>
-                    <td><label for="comments">Comments:</label></td>
-                    <td><input type="text" name="comments" required></td>
                 </tr>
                 <tr>
                     <td colspan="2" style="text-align: left;">

@@ -99,6 +99,32 @@
 <body>
     <a href="/back"><button type="button">← Back</button></a>
     <h2>Routes Overview</h2>
+    
+    <div class="form-section">
+        <h2>Add New Route</h2>
+        <form action="{{ url_for('add_route') }}" method="POST">
+            <table cellpadding="6">
+                <tr>
+                    <td><label for="elr">ELR:</label></td>
+                    <td><input type="text" name="elr" required></td>
+                </tr>
+                <tr>
+                    <td><label for="start_mileage">Start Mileage:</label></td>
+                    <td><input type="number" step="any" name="start_mileage" min="0" required></td>
+                </tr>
+                <tr>
+                    <td><label for="end_mileage">End Mileage:</label></td>
+                    <td><input type="number" step="any" name="end_mileage" min="0" required></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <br>
+                        <button type="submit">Add Route</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
 
     {% if routes %}
         <form id="update-form" method="POST" action="/update_routes"></form>
@@ -184,36 +210,11 @@
         </table>
 
         {% if is_admin %}
-            <button type="submit" id="save-button" form="update-form">Save Changes</button>
+            <button type="submit" id="save-button" form="update-form">💾 Save Changes</button>
         {% endif %}
     {% else %}
         <p>No routes available.</p>
     {% endif %}
 
-    <div class="form-section">
-        <h2>Add New Route</h2>
-        <form action="{{ url_for('add_route') }}" method="POST">
-            <table cellpadding="6">
-                <tr>
-                    <td><label for="elr">ELR:</label></td>
-                    <td><input type="text" name="elr" required></td>
-                </tr>
-                <tr>
-                    <td><label for="start_mileage">Start Mileage:</label></td>
-                    <td><input type="number" step="any" name="start_mileage" min="0" required></td>
-                </tr>
-                <tr>
-                    <td><label for="end_mileage">End Mileage:</label></td>
-                    <td><input type="number" step="any" name="end_mileage" min="0" required></td>
-                </tr>
-                <tr>
-                    <td colspan="2" style="text-align: left;">
-                        <br>
-                        <button type="submit">Add Route</button>
-                    </td>
-                </tr>
-            </table>
-        </form>
-    </div>
 </body>
 </html>
