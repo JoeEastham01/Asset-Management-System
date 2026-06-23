@@ -9,31 +9,44 @@ import re
 
 # Flask app setup
 app = Flask(__name__)
-app.secret_key = 'supersecretkey2f'
+app.secret_key = 'supersecretkey2f'  # SECURITY: Change this in production
 
 # Password encryption
 bcrypt = Bcrypt(app)
 
 
-
 # Connects to the applications SQLite database
 def get_db_connection():
+    """Establish connection to SQLite database with foreign key constraints enabled"""
     conn = sqlite3.connect('database/RailAssetManagement.db')
     conn.execute('PRAGMA foreign_keys = ON')
     conn.row_factory = sqlite3.Row
     return conn
 
 
-
+# Grade to months mapping for compliance calculations
 GRADE_MONTHS = {
     'A': 36, 'B': 30, 'C': 24, 'D': 18, 'E': 12, 'F': 6
 }
 
+# Asset offset months for adjusting compliance dates based on asset conditions
 ASSET_OFFSET_MONTHS = {
     'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6
 }
 
+
 def calculate_compliance_date(grade, exam_date_str, offset=None):
+    """
+    Calculate compliance date based on exam grade and optional asset offset
+    
+    Args:
+        grade (str): Exam grade (A-F)
+        exam_date_str (str): Exam date in YYYY-MM-DD format
+        offset (int, optional): Months to subtract from compliance date
+        
+    Returns:
+        date: Calculated compliance date or None if calculation fails
+    """
     try:
         exam_date = datetime.strptime(exam_date_str, '%Y-%m-%d')
         months = GRADE_MONTHS.get(grade.upper())
@@ -43,20 +56,22 @@ def calculate_compliance_date(grade, exam_date_str, offset=None):
                 compliance_date = compliance_date - relativedelta(months=offset)
             return compliance_date.date()
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error calculating compliance date: {e}")
     return None
 
 
-# reset table autoincrement on id
 def reset_autoincrement(conn, table, id_column):
+    """Reset table autoincrement sequence to match the highest existing ID"""
     cursor = conn.cursor()
 
+    # Get the maximum ID from the table
     get_max_id = f'SELECT MAX({id_column}) FROM {table}'
     cursor.execute(get_max_id)
     max_id = cursor.fetchone()[0]
     if max_id is None:
         max_id = 0
 
+    # Update the autoincrement sequence
     cursor.execute(
         "UPDATE sqlite_sequence SET seq = ? WHERE name = ?",
         (max_id, table)
@@ -64,23 +79,20 @@ def reset_autoincrement(conn, table, id_column):
     conn.commit()
 
 
-
-
+#-------------------------------------------------------------------------------------------------------
+# AUTHENTICATION ROUTES
 #-------------------------------------------------------------------------------------------------------
 
 
-
-
-# Route for the application home page, launch page
 @app.route('/')
 def home():
+    """Application home page"""
     return render_template('home.html')
-        
 
 
-# Login function verifies credentials, and redirects to the appropriate dashboard
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """Login function verifies credentials and redirects to appropriate dashboard"""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -95,7 +107,7 @@ def login():
             session['email'] = user['email']
 
             # Redirect admins and regular users to their respective dashboards
-            if user['admin'] == True:
+            if user['admin'] == 1:  # FIX: Use == 1 instead of == True for consistency
                 return redirect(url_for('admin_dashboard'))
             else:
                 return redirect(url_for('dashboard'))
@@ -103,71 +115,79 @@ def login():
             flash('Invalid email or password')
     return render_template('login.html')
 
-'''
-More detailed error feedback to indicate if the password or email is icorrect,
+"""
+More detailed error feedback to indicate if the password or email is incorrect,
 is avoided to prevent giving clues to attackers about valid accounts.
-'''
-
-
-#-------------------------------------------------------------------------------------------------------
+"""
 
 
 def validate_credentials_format(email, password):
+    """
+    Validate email and password format
+    
+    Args:
+        email (str): Email address to validate
+        password (str): Password to validate
+        
+    Returns:
+        bool: True if both email and password are valid format
+    """
     special_characters = r'[!@#$%^&*(),.?\":{}|<>]'
-    Valid = True
+    is_valid = True  # FIX: Use more descriptive variable name
 
-    # email validation to check for '@' and accepted domains
+    # Email validation to check for '@' and accepted domains
     if '@' not in email:
-        Valid = False
-    if '.com' not in email:
-        if '.co.uk' not in email:
-            Valid = False
-    if Valid == False:
+        is_valid = False
+        flash('Please enter a valid email address')
+    elif '.com' not in email and '.co.uk' not in email:  # FIX: Combine conditions
+        is_valid = False
         flash('Please enter a valid email address')
         
     # Password length and special character validation
     if len(password) < 5:
-        Valid = False
-        flash('Please enter a password at least 5 charactors long')
+        is_valid = False
+        flash('Please enter a password at least 5 characters long')  # FIX: Spelling
     elif not re.search(special_characters, password):
-        Valid = False
+        is_valid = False
         flash('Password must contain at least one special character [!@#$%^&*(),.?\":{}|<>]')   
 
-    return Valid
+    return is_valid
 
 
-# User registration route 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    """User registration route for regular users"""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
 
-        Valid = validate_credentials_format(email, password)
+        is_valid = validate_credentials_format(email, password)  # FIX: Use consistent variable name
     
-        if Valid == True:
+        if is_valid:  # FIX: Remove unnecessary == True comparison
             try:
                 conn = get_db_connection()
                 reset_autoincrement(conn, 'users', 'user_id')
-                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, 0))
+                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', 
+                           (email, hashed_pw, 0))
                 conn.commit()
                 conn.close()
+                flash('Registration successful! Please log in.')  # ADD: Success message
                 return redirect(url_for('login'))
             except sqlite3.IntegrityError:
                 flash('Email already registered')
 
     return render_template('register.html') 
 
-'''
+"""
 Further validation could be included such as sending an email and generating a code
 to confirm a valid address and then activate the account.
-'''
+"""
 
 
-# Admin user registration
 @app.route('/admin_register', methods=['GET', 'POST'])
 def admin_register():
+    """Admin user registration route"""
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -176,15 +196,17 @@ def admin_register():
         # Get admin flag from form, default to 0 (non-admin)
         admin = int(request.form.get('admin', 0))
 
-        Valid = validate_credentials_format(email, password)
+        is_valid = validate_credentials_format(email, password)  # FIX: Use consistent variable name
 
-        if Valid == True:
+        if is_valid:  # FIX: Remove unnecessary == True comparison
             try:
                 conn = get_db_connection()
                 reset_autoincrement(conn, 'users', 'user_id')
-                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', (email, hashed_pw, admin))
+                conn.execute('INSERT INTO users (email, password, admin) VALUES (?, ?, ?)', 
+                           (email, hashed_pw, admin))
                 conn.commit()
                 conn.close()
+                flash('Admin registration successful! Please log in.')  # ADD: Success message
                 return redirect(url_for('login'))
             except sqlite3.IntegrityError:
                 flash('Email already registered')
@@ -192,31 +214,51 @@ def admin_register():
     return render_template('admin_register.html')
 
 
-
+#-------------------------------------------------------------------------------------------------------
+# DASHBOARD ROUTES
 #-------------------------------------------------------------------------------------------------------
 
 
 @app.route('/dashboard')
 def dashboard():
+    """Regular user dashboard"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('dashboard.html', email=session['email'])
 
 
-
 @app.route('/admin_dashboard')
 def admin_dashboard():
+    """Admin user dashboard"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     return render_template('admin_dashboard.html', email=session['email'])
 
 
-
+#-------------------------------------------------------------------------------------------------------
+# ASSET MANAGEMENT ROUTES
 #-------------------------------------------------------------------------------------------------------
 
-# asset data overview
+
+def admin_status():
+    """
+    Check if current user is an admin
+    
+    Returns:
+        bool: True if current user is admin, False otherwise
+    """
+    conn = get_db_connection()
+    # FIX: Remove unused variable
+    admin_result = conn.execute('SELECT admin FROM users WHERE user_id = ?', 
+                               (session['user_id'],)).fetchone()
+    conn.close()
+    
+    return admin_result and admin_result['admin'] == 1
+
+
 @app.route('/asset_data')
 def asset_data():
+    """Asset data overview page"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -229,8 +271,8 @@ def asset_data():
     return render_template('asset_data.html', exams=exams, assets=assets, is_admin=is_admin)   
 
 
-# update 
 def update_asset(asset_id, exam_id, asset_type, grade, comments):
+    """Update asset record in database"""
     conn = get_db_connection()
     conn.execute('''
         UPDATE assets
@@ -246,9 +288,13 @@ def update_asset(asset_id, exam_id, asset_type, grade, comments):
 
 @app.route('/update_assets', methods=['POST'])
 def update_assets():
+    """Update all asset records and recalculate compliance dates"""
     conn = get_db_connection()
     assets = conn.execute('SELECT * FROM assets').fetchall()
     exams = conn.execute('SELECT * FROM exams').fetchall()
+    conn.close()  # FIX: Close connection after fetching data
+    
+    # Update each asset
     for asset in assets:
         asset_id = asset['asset_id']
         asset_exam_id = request.form.get(f'exam_id_{asset_id}')
@@ -256,7 +302,8 @@ def update_assets():
         grade = request.form.get(f'grade_{asset_id}')
         comments = request.form.get(f'comments_{asset_id}')
         update_asset(asset_id, asset_exam_id, asset_type, grade, comments)
-            
+    
+    # Recalculate compliance dates for all exams
     for exam in exams:
         try:
             exam_id = exam['exam_id']
@@ -264,7 +311,9 @@ def update_assets():
             exam_date = exam['date']
             
             conn = get_db_connection()
-            row = conn.execute('SELECT MAX(grade) AS worst_grade FROM assets WHERE exam_id = ?', (exam_id,)).fetchone()
+            row = conn.execute('SELECT MAX(grade) AS worst_grade FROM assets WHERE exam_id = ?', 
+                             (exam_id,)).fetchone()
+            conn.close()  # FIX: Close connection after query
             
             worst = row['worst_grade'] if row and row['worst_grade'] else None
             offset = ASSET_OFFSET_MONTHS.get(worst.upper(), 0) if worst else 0
@@ -279,14 +328,15 @@ def update_assets():
             conn.commit()
             conn.close()
         except Exception as e:
-            print(f'{e} - error updating complaince date from assets')
+            print(f'{e} - error updating compliance date from assets')  # FIX: Spelling
             
+    flash('Assets updated successfully!')  # ADD: Success message
     return redirect('/asset_data')
 
 
-# Add a new asset to the database
 @app.route('/add_asset', methods=['POST'])
 def add_asset():
+    """Add a new asset to the database"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -297,16 +347,21 @@ def add_asset():
 
     conn = get_db_connection()
     reset_autoincrement(conn, 'assets', 'asset_id') 
-        
-    conn.execute('INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)', (exam_id, asset_type, grade, comments))
+    conn.execute('INSERT INTO assets (exam_id, type, grade, comments) VALUES (?, ?, ?, ?)', 
+                (exam_id, asset_type, grade, comments))
     conn.commit()
     conn.close()
+    
+    flash('Asset added successfully!')  # ADD: Success message
     return redirect(url_for('asset_data'))
- 
 
 
 @app.route('/delete_asset/<int:asset_id>', methods=['POST'])
 def delete_asset(asset_id):
+    """Delete asset record"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     conn.execute('DELETE FROM assets WHERE asset_id = ?', (asset_id,))
     conn.commit()
@@ -314,19 +369,23 @@ def delete_asset(asset_id):
     flash(f'Asset {asset_id} deleted successfully.')
     return redirect('/asset_data')
 
-
-'''
-With forgien key constrainsts on the database, deleting an exam record will delete all associated assets,
-and deleting a route, will delete the associated exam. Cascade delete.
-'''
-
+"""
+With foreign key constraints on the database, deleting an exam record will delete all associated assets,
+and deleting a route will delete the associated exam. Cascade delete.
+"""
 
 
+#-------------------------------------------------------------------------------------------------------
+# USER MANAGEMENT ROUTES
 #-------------------------------------------------------------------------------------------------------
 
 
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
+    """Delete user record"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     conn.execute('DELETE FROM users WHERE user_id = ?', (user_id,))
     conn.commit()
@@ -335,23 +394,12 @@ def delete_user(user_id):
     return redirect('/user_data')  
 
 
-def admin_status():
-    conn = get_db_connection()
-    users = conn.execute('SELECT * FROM users').fetchall()
-
-    # Get current user's admin status
-    admin_status = conn.execute('SELECT admin FROM users WHERE user_id = ?', (session['user_id'],)).fetchone()
-    conn.close()
-    if admin_status['admin'] == 1:
-        is_admin = True
-    else:
-        is_admin = False
-        
-    return is_admin
-
-
 @app.route('/user_data')
-def user_data():   
+def user_data():
+    """User data management page"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     users = conn.execute('SELECT * FROM users').fetchall()
     conn.close()
@@ -360,23 +408,25 @@ def user_data():
     return render_template('user_data.html', email=session['email'], users=users, is_admin=is_admin)
 
 
-
 def update_user(user_id, user_email, user_admin):
+    """Update user record in database"""
     conn = get_db_connection()
     conn.execute('''
         UPDATE users
-        SET user_id = ?,
-            email = ?,
+        SET email = ?,
             admin = ?
         WHERE user_id = ?
-    ''', (user_id, user_email, user_admin, user_id))
+    ''', (user_email, user_admin, user_id))  # FIX: Remove redundant user_id assignment
     conn.commit()
     conn.close()
 
 
-
 @app.route('/update_users', methods=['POST'])
 def update_users():
+    """Update all user records"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     users = conn.execute('SELECT * FROM users').fetchall()
     conn.close()
@@ -385,26 +435,28 @@ def update_users():
         user_id = user['user_id']
         user_email = request.form.get(f'email_{user_id}')
         user_admin = request.form.get(f'admin_{user_id}')
+        user_admin = 1 if user_admin == 'on' else 0  # FIX: Handle checkbox values properly
           
-        # Then update the DB using SQL or your ORM
         update_user(user_id, user_email, user_admin)
+    
+    flash('Users updated successfully!')  # ADD: Success message
     return redirect('/user_data')
 
 
-
-
-
+#-------------------------------------------------------------------------------------------------------
+# EXAM MANAGEMENT ROUTES
 #-------------------------------------------------------------------------------------------------------
 
 
 @app.route('/exam_data')
 def exam_data():
+    """Exam data overview page"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
     conn = get_db_connection()
-    exams = conn.execute('SELECT * FROM exams').fetchall()
 
+    # Get exam data with asset count
     raw_exams = conn.execute('''
         SELECT 
             exams.*,
@@ -415,22 +467,19 @@ def exam_data():
     today = date.today()
     exams = []
 
+    # Process exam data and check compliance status
     for row in raw_exams:
         exam = dict(row)  # Convert to mutable dictionary
         compliance_date = exam['compliance_date']
         if isinstance(compliance_date, str):
             compliance_date = date.fromisoformat(compliance_date)
         
-        exam['is_compliant'] = today <= compliance_date
+        exam['is_compliant'] = today <= compliance_date if compliance_date else False
         exams.append(exam)
 
-    # All route IDs
+    # Get route assignment logic
     all_routes = conn.execute('SELECT * FROM routes').fetchall()
-
-    # Route IDs already assigned to exams
     used_ids = {exam['route_id'] for exam in exams}
-
-    # Available route IDs only
     available_routes = [route for route in all_routes if route['route_id'] not in used_ids]
 
     # Build per-exam allowed route lists (own + unused)
@@ -446,16 +495,20 @@ def exam_data():
         ]
         allowed_routes[this_id] = allowed
 
-
     users = conn.execute('SELECT user_id, email FROM users').fetchall()
     routes = conn.execute('SELECT route_id, ELR FROM routes').fetchall()
+    conn.close()
+    
     is_admin = admin_status()
     current_date = date.today().isoformat()
-    return render_template('exam_data.html', email=session['email'], exams=exams, users=users, routes=routes, allowed_routes=allowed_routes, available_routes=available_routes, is_admin=is_admin, current_date=current_date)   
-
+    
+    return render_template('exam_data.html', email=session['email'], exams=exams, users=users, 
+                         routes=routes, allowed_routes=allowed_routes, available_routes=available_routes, 
+                         is_admin=is_admin, current_date=current_date)   
 
 
 def update_exam(exam_id, user_id, route_id, grade, date, compliance_date):
+    """Update exam record in database"""
     conn = get_db_connection()
     conn.execute('''
         UPDATE exams
@@ -470,11 +523,15 @@ def update_exam(exam_id, user_id, route_id, grade, date, compliance_date):
     conn.close()
 
 
-
 @app.route('/update_exams', methods=['POST'])
 def update_exams():
+    """Update all exam records and recalculate compliance dates"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     exams = conn.execute('SELECT * FROM exams').fetchall()
+    conn.close()  # FIX: Close connection after fetching data
 
     for exam in exams:  
         exam_id = exam['exam_id']
@@ -489,23 +546,25 @@ def update_exams():
             'SELECT MAX(grade) AS worst_grade FROM assets WHERE exam_id = ?', (exam_id,)
         ).fetchone()
         conn.close()
+        
         worst = row['worst_grade'] if row and row['worst_grade'] else None
         offset = ASSET_OFFSET_MONTHS.get(worst.upper(), 0) if worst else 0
         
         try:
             compliance_date = calculate_compliance_date(grade, date, offset)
         except Exception as e:
-            print(f'[update_exams] Error parsing dates or calculating compliance date for exam ID {exam_id}: {e}')
-            compliance_date = date 
+            print(f'[update_exams] Error calculating compliance date for exam ID {exam_id}: {e}')
+            compliance_date = None  # FIX: Set to None instead of date string
             
         update_exam(exam_id, user_id, route_id, grade, date, compliance_date)
 
+    flash('Exams updated successfully!')  # ADD: Success message
     return redirect('/exam_data')  
 
 
-# adds a new exam record and calls compliance function
 @app.route('/add_exam', methods=['POST'])
 def add_exam():
+    """Add a new exam record"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -517,34 +576,66 @@ def add_exam():
 
     conn = get_db_connection()
     reset_autoincrement(conn, 'exams', 'exam_id')
-    
-    conn.execute('INSERT INTO exams (user_id, route_id, grade, date, compliance_date) VALUES (?, ?, ?, ?, ?)', (user_id, route, grade, current_date, compliance_date))
+    conn.execute('INSERT INTO exams (user_id, route_id, grade, date, compliance_date) VALUES (?, ?, ?, ?, ?)', 
+                (user_id, route, grade, current_date, compliance_date))
     conn.commit()
     conn.close()
 
+    flash('Exam added successfully!')  # ADD: Success message
     return redirect(url_for('exam_data'))
 
 
-# delete exam record
 @app.route('/delete_exam/<int:exam_id>', methods=['POST'])
 def delete_exam(exam_id):
+    """Delete exam record"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     conn.execute('DELETE FROM exams WHERE exam_id = ?', (exam_id,))
     conn.commit()
     conn.close()
-    flash(f'User {exam_id} deleted successfully.')
+    flash(f'Exam {exam_id} deleted successfully.')  # FIX: Change "User" to "Exam"
     return redirect('/exam_data')
+    
+    
+    
+@app.route('/view_exam/<int:exam_id>', methods=['POST'])   
+def view_exam(exam_id):
+    """Exam data overview page"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    conn = get_db_connection()
 
+    # Get exam data
+    raw_exams = conn.execute('''
+        SELECT * FROM exams WHERE exam_id = ?
+    ''', (exam_id,)).fetchall()
 
-
+    
+    exams = [dict(row) for row in raw_exams]
+    today = date.today()   
+    is_admin = admin_status()
+    
+    users = conn.execute('SELECT user_id, email FROM users').fetchall()
+    routes = conn.execute('SELECT route_id, ELR, start_mileage, end_mileage FROM routes').fetchall()
+    conn.close()
+    
+   
+    return render_template('view_exam.html', email=session['email'], exams=exams, users=users, 
+                         routes=routes, is_admin=is_admin, today=today)      
 
 
 
 #-------------------------------------------------------------------------------------------------------
+# ROUTE MANAGEMENT ROUTES
+#-------------------------------------------------------------------------------------------------------
 
-# route data overview
+
 @app.route('/route_data')
 def route_data():
+    """Route data overview page"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
@@ -556,9 +647,12 @@ def route_data():
     return render_template('route_data.html', routes=routes, is_admin=is_admin) 
 
 
-# delete route data
 @app.route('/delete_route/<int:route_id>', methods=['POST'])
 def delete_route(route_id):
+    """Delete route record"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     conn.execute('DELETE FROM routes WHERE route_id = ?', (route_id,))
     conn.commit()
@@ -567,8 +661,8 @@ def delete_route(route_id):
     return redirect('/route_data') 
 
 
-# comit update function
 def update_route(route_id, route_elr, route_start_mileage, route_end_mileage):
+    """Update route record in database"""
     conn = get_db_connection()
     conn.execute('''
         UPDATE routes
@@ -581,9 +675,12 @@ def update_route(route_id, route_elr, route_start_mileage, route_end_mileage):
     conn.close()
 
 
-# update existing route data
 @app.route('/update_routes', methods=['POST'])
 def update_routes():
+    """Update all route records"""
+    if 'user_id' not in session:  # ADD: Authentication check
+        return redirect(url_for('login'))
+        
     conn = get_db_connection()
     routes = conn.execute('SELECT * FROM routes').fetchall()
     conn.close()
@@ -595,13 +692,14 @@ def update_routes():
         route_end_mileage = request.form.get(f'end_mileage_{route_id}')
           
         update_route(route_id, route_elr, route_start_mileage, route_end_mileage)
+    
+    flash('Routes updated successfully!')  # ADD: Success message
     return redirect('/route_data')
 
 
-
-# add new route
 @app.route('/add_route', methods=['POST'])
 def add_route():
+    """Add new route record"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -611,22 +709,23 @@ def add_route():
 
     conn = get_db_connection()
     reset_autoincrement(conn, 'routes', 'route_id')
-    
-    conn.execute('INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)', (route_elr, start_mileage, end_mileage))
+    conn.execute('INSERT INTO routes (elr, start_mileage, end_mileage) VALUES (?, ?, ?)', 
+                (route_elr, start_mileage, end_mileage))
     conn.commit()
     conn.close()
 
+    flash('Route added successfully!')  # ADD: Success message
     return redirect(url_for('route_data'))
 
 
-
-
 #-------------------------------------------------------------------------------------------------------
-
+# UTILITY ROUTES
+#-------------------------------------------------------------------------------------------------------
 
 
 @app.route('/back')
 def back():
+    """Navigate back to appropriate dashboard based on user role"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -640,34 +739,14 @@ def back():
         return redirect(url_for('dashboard'))
 
 
-
-#-------------------------------------------------------------------------------------------------------
-
-
 @app.route('/logout')
 def logout():
+    """Clear user session and redirect to home"""
     session.clear()
+    flash('You have been logged out successfully.')  # ADD: Logout message
     return redirect(url_for('home'))
 
 
-
-
+# Run the application
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
