@@ -1,27 +1,123 @@
 <html>
 <head>
-	<title>Register</title>
+    <title>Register</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: #fff;
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 400px;
+        }
+
+        h2 {
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        label {
+            font-weight: bold;
+            display: block;
+            margin-top: 15px;
+            text-align: left;
+            color: #444;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        .flash-messages {
+            margin-top: 15px;
+            background: #ffe5e5;
+            padding: 10px;
+            border-radius: 6px;
+            color: #b30000;
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .btn-submit {
+            margin-top: 25px;
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            color: white;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .btn-submit:hover {
+            background-color: #0056b3;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: #6c757d;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background-color: #565e64;
+        }
+    </style>
 </head>
 <body>
-    <h2>Register</h2>
-    <form action="/register" method="post">
-        <label>Email:</label><br>
-        <input type="text" name="email"><br>
-        <label>Password:</label><br>
-        <input type="password" name="password"><br><br>
-		
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-        {% endif %}
-    {% endwith %}		
-		
-		
-        <input type="submit" value="Register">
-    </form>
+
+    <a href="/"><button class="back-btn">Back</button></a>
+
+    <div class="container">
+        <h2>Register</h2>
+
+        <form action="/register" method="post">
+
+            <label>Email:</label>
+            <input type="text" name="email" required>
+
+            <label>Password:</label>
+            <input type="password" name="password" required>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for message in messages %}
+                            • {{ message }}<br>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <button type="submit" class="btn-submit">Register</button>
+        </form>
+    </div>
+
 </body>
 </html>

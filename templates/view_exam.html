@@ -146,8 +146,9 @@
 
                 <div class="field">
                     <span class="label">Exam Date:</span>
-                    <span class="value">{{ exam.exam_date or 'N/A' }}</span>
-                </div>
+                    <span class="value">{{ exam.date or 'N/A' }}</span>
+                </div>			
+				
 
                 {% if is_admin %}
                 <div class="admin-buttons">

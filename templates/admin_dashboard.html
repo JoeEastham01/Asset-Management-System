@@ -5,25 +5,39 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 40px;
+            margin: 0;
+            padding: 0;
             background-color: #f8f9fa;
-            text-align: center;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
+
+        .dashboard-container {
+            background: #fff;
+            padding: 40px 60px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 500px;
+        }
+
         h1 {
             color: #333;
-            margin-bottom: 40px;
+            margin-bottom: 10px;
         }
-        .dashboard-container {
-            display: inline-block;
-            background: #fff;
-            padding: 30px 50px;
-            border-radius: 10px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+
+        .email {
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 25px;
         }
+
         .btn {
             display: block;
-            width: 250px;
-            margin: 15px auto;
+            width: 100%;
+            margin: 12px 0;
             padding: 12px 0;
             border: none;
             border-radius: 6px;
@@ -33,23 +47,45 @@
             cursor: pointer;
             transition: background 0.2s;
         }
+
         .btn:hover {
             background-color: #0056b3;
         }
+
         .logout-form {
-            margin-top: 30px;
+            margin-top: 25px;
         }
+
         .logout-form button {
             background-color: #dc3545;
+            width: 100%;
+            padding: 12px 0;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
         }
+
         .logout-form button:hover {
             background-color: #b52d3b;
         }
-        .email {
-            font-weight: bold;
-            color: #555;
-            margin-bottom: 30px;
+
+        footer {
+            position: fixed;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            color: #777;
+            font-size: 13px;
         }
+		
+		a, a:focus, a:active {
+			text-decoration: none;
+			outline: none;
+		}
+			
     </style>
 </head>
 <body>
@@ -57,14 +93,19 @@
         <h1>Welcome, {{ email }}!</h1>
         <div class="email">{{ email }}</div>
 
-		<a href="/exam_data"><button>View Exam Data</button></a><br><br>
-		<a href="/asset_data"><button>View Asset Data</button></a><br><br>
-		<a href="/route_data"><button>View Route Data</button></a><br><br>
-		<a href="/user_data"><button>View User Data</button></a><br><br>
-		<a href="/admin_register"><button>Register Admin</button></a><br><br>
-		<form action="/logout" method="GET" class="logout-form">
-			<button type="submit" class="confirm-logout">Logout</button>
-		</form>
+        <a href="/exam_data"><button class="btn">View Exam Data</button></a>
+        <a href="/asset_data"><button class="btn">View Asset Data</button></a>
+        <a href="/route_data"><button class="btn">View Route Data</button></a>
+        <a href="/user_data"><button class="btn">View User Data</button></a>
+        <a href="/admin_register"><button class="btn">Register Admin</button></a>
+
+        <form action="/logout" method="GET" class="logout-form">
+            <button type="submit" class="confirm-logout">Logout</button>
+        </form>
     </div>
+
+    <footer>
+        © {{ current_year or "2025" }} JBA Consulting – Admin Panel
+    </footer>
 </body>
 </html>

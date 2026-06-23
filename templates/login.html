@@ -1,26 +1,127 @@
 <html>
 <head>
     <title>Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .login-container {
+            background: #fff;
+            padding: 40px 50px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 380px;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 25px;
+        }
+
+        form {
+            text-align: left;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 8px;
+            margin: 8px 0 16px 0;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        input[type="submit"] {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #0056b3;
+        }
+
+        .messages {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+            color: #dc3545;
+            font-weight: bold;
+            text-align: center;
+        }
+		
+        .btn-submit:hover {
+            background-color: #0056b3;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background-color: #6c757d;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .back-btn:hover {
+            background-color: #565e64;
+        }		
+
+    </style>
 </head>
 <body>
-    <h2>Login</h2>
-    <form action="/login" method="post">
-        <label>Email:</label><br>
-        <input type="text" name="email"><br>
-        <label>Password:</label><br>
-        <input type="password" name="password"><br><br>
-		
-    {% with messages = get_flashed_messages() %}
-        {% if messages %}
-            <ul>
-            {% for message in messages %}
-                <li>{{ message }}</li>
-            {% endfor %}
-            </ul>
-        {% endif %}
-    {% endwith %}
-	
-        <input type="submit" value="Login">
-    </form>
+
+	<a href="/"><button class="back-btn">Back</button></a>
+
+    <div class="login-container">
+        <h2>Login</h2>
+
+        <form action="/login" method="post">
+            <label>Email:</label>
+            <input type="text" name="email" required>
+
+            <label>Password:</label>
+            <input type="password" name="password" required>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <ul class="messages">
+                    {% for message in messages %}
+                        <li>{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+
+            <input type="submit" value="Login">
+        </form>
+
+    </div>
 </body>
 </html>
