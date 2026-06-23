@@ -100,7 +100,7 @@
         <form method="GET" action="/exam_data" style="margin-bottom: 15px; display:flex; gap:10px; align-items:center;">
 
             <input type="text" name="search"
-                   placeholder="Search ELR / mileage..."
+                   placeholder="Exam ID..."
                    value="{{ request.args.get('search', '') }}">
 
             <select name="elr">
@@ -197,7 +197,7 @@
                             {% if is_admin %}
                                 <input type="date" name="date_{{ exam['exam_id'] }}" form="update-form" class="track-change" value="{{ exam['date'] }}" max="{{ current_date }}">
                             {% else %}
-                                <input type="date" class="track-change" value="{{ exam['exam_date'] }}" readonly>
+                                <input type="date" class="track-change" value="{{ exam['date'] }}" readonly>
                             {% endif %}
                         </td>
 
@@ -210,13 +210,21 @@
                                 <span class="non-compliant">Non-Compliant</span>
                             {% endif %}
                         </td>
-
+                        
                         <td>
-                            <form method="POST" action="/view_exam/{{ exam['exam_id'] }}" style="display:inline;">
+                            <form method="GET" action="/track_section_record" style="display:inline;">
+                                <input type="hidden" name="bid" value="{{ exam['bid'] }}">
+                                
+                                <input type="hidden" name="description" value="{{ exam['route_desc'] }}">
+                                <input type="hidden" name="route_type" value="{{ exam['route_kind'] }}">
+                                <input type="hidden" name="speedband" value="{{ exam['route_speed'] }}">
+                                
+                                <input type="hidden" name="ogr_fid" value="{{ exam['route_id'] }}">
+                                
                                 <button type="submit">View</button>
                             </form>
                         </td>
-
+                        
                         {% if is_admin %}
                         <td>
                             <form method="POST" action="/delete_exam/{{ exam['exam_id'] }}" onsubmit="return confirm('Are you sure you want to delete exam {{ exam['exam_id'] }}?');" style="display:inline;">

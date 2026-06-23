@@ -260,17 +260,36 @@ def admin_status():
 
 @app.route('/asset_data')
 def asset_data():
-    """Asset data overview page"""
+    """Asset data overview page with Asset ID search capability"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Extract search keyword from request arguments
+    search_query = request.args.get('search', '').strip()
+    
     conn = get_db_connection()
-    assets = conn.execute('SELECT * FROM assets').fetchall()
+    
+    # Always fetch all exams to populate forms/dropdown options
     exams = conn.execute('SELECT exam_id FROM exams').fetchall()
+    
+    if search_query:
+        # Filter assets dynamically based on Asset ID matching
+        query = "SELECT * FROM assets WHERE asset_id LIKE ?"
+        assets = conn.execute(query, ('%' + search_query + '%',)).fetchall()
+    else:
+        # Fallback to default state: fetch everything
+        assets = conn.execute('SELECT * FROM assets').fetchall()
+        
     conn.close()
     is_admin = admin_status()   
     
-    return render_template('asset_data.html', exams=exams, assets=assets, is_admin=is_admin)   
+    return render_template(
+        'asset_data.html', 
+        exams=exams, 
+        assets=assets, 
+        is_admin=is_admin, 
+        search_query=search_query
+    )
 
 
 def update_asset(asset_id, exam_id, asset_type, grade, comments):
@@ -489,13 +508,19 @@ def exam_data():
 
     # Build exam query
     if route_ids:
+        # Added direct column references for real route track properties
         exam_query = f'''
             SELECT
                 exams.*,
+                routes.bid,
+                routes.description AS route_desc,
+                routes.route_type AS route_kind,
+                routes.speedband AS route_speed,
                 (SELECT COUNT(*)
                  FROM assets
                  WHERE assets.exam_id = exams.exam_id) AS asset_count
             FROM exams
+            INNER JOIN routes ON exams.route_id = routes.route_id
             WHERE exams.route_id IN ({','.join(['?'] * len(route_ids))})
         '''
 
@@ -674,7 +699,6 @@ def delete_exam(exam_id):
 
 
 
-
 @app.route('/track_section_record')
 def track_section_record():
     if 'user_id' not in session:
@@ -694,10 +718,18 @@ def track_section_record():
         exam_record = conn.execute('SELECT * FROM exams WHERE route_id = ?', (route_id,)).fetchone()
         conn.close()
 
-    # 3. Fallback safely if no row is returned by the database query
+    # 3. Fallback safely using valid sqlite3.Row bracket notation
     if exam_record:
-        examiner = exam_record['examiner']
-        exam_date = exam_record['exam_date']
+        try:
+            examiner = exam_record['examiner']
+        except (IndexError, KeyError):
+            examiner = exam_record['user_id'] if 'user_id' in exam_record.keys() else "Assigned Staff"
+
+        try:
+            exam_date = exam_record['exam_date']
+        except (IndexError, KeyError):
+            exam_date = exam_record['date'] if 'date' in exam_record.keys() else "N/A"
+
         compliance_date = exam_record['compliance_date']
         grade = exam_record['grade']
     else:
@@ -723,8 +755,6 @@ def track_section_record():
         compliance_date=compliance_date, 
         grade=grade
     )
-
-
 
     
     
@@ -763,16 +793,45 @@ def view_exam(exam_id):
 
 @app.route('/route_data')
 def route_data():
-    """Route data overview page"""
+    """Route data overview page with search and ELR filter capabilities"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
     
+    # Get parameters from the URL
+    search_query = request.args.get('search', '').strip()
+    selected_elr = request.args.get('elr', '').strip()
+    
     conn = get_db_connection()
-    routes = conn.execute('SELECT * FROM routes').fetchall()
+    
+    # 1. Fetch all unique ELRs to populate the dropdown menu dynamically
+    all_elrs = conn.execute('SELECT DISTINCT elr FROM routes WHERE elr IS NOT NULL AND elr != "" ORDER BY elr').fetchall()
+    
+    # 2. Build dynamic SQL query based on filters
+    query = "SELECT * FROM routes WHERE 1=1"
+    params = []
+    
+    if search_query:
+        query += " AND route_id LIKE ?"
+        params.append(f"%{search_query}%")
+        
+    if selected_elr:
+        query += " AND elr = ?"
+        params.append(selected_elr)
+        
+    routes = conn.execute(query, tuple(params)).fetchall()
     conn.close()
+    
     is_admin = admin_status()
     
-    return render_template('route_data.html', routes=routes, is_admin=is_admin) 
+    # Pass everything down to the template
+    return render_template(
+        'route_data.html', 
+        routes=routes, 
+        is_admin=is_admin, 
+        search_query=search_query,
+        all_elrs=all_elrs,
+        selected_elr=selected_elr
+    )
 
 
 @app.route('/delete_route/<int:route_id>', methods=['POST'])
