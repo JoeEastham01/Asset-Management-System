@@ -1,0 +1,187 @@
+<html>
+<head>
+    <title>Exam {{ exams[0].exam_id if exams else '' }} View</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #333;
+        }
+        .exam-container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            max-width: 700px;
+        }
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-weight: bold;
+            color: #555;
+        }
+        .tab.active {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .field {
+            margin-bottom: 10px;
+        }
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .value {
+            color: #000;
+        }
+        .admin-buttons {
+            margin-top: 20px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+            background-color: #007bff;
+            margin-right: 10px;
+        }
+        .btn.delete {
+            background-color: #dc3545;
+        }
+        .photo {
+            display: block;
+            max-width: 100%;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Exam Details</h1>
+    <p><strong>Logged in as:</strong> {{ email }}</p>
+    <p><strong>Date:</strong> {{ today.strftime('%d %B %Y') }}</p>
+
+    {% if exams %}
+        {% for exam in exams %}
+        <div class="exam-container">
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab active" onclick="showTab(event, 'details')">Details</button>
+                <button class="tab" onclick="showTab(event, 'photos')">Photos</button>
+            </div>
+
+            <!-- Details tab -->
+            <div id="details" class="tab-content active">
+                <div class="field">
+                    <span class="label">Exam ID:</span>
+                    <span class="value">{{ exam.exam_id }}</span>
+                </div>
+
+                <div class="field">
+                    <span class="label">Examiner:</span>
+                    <span class="value">
+                        {% for user in users %}
+                            {% if user.user_id == exam.user_id %}
+                                {{ user.email }}
+                            {% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+
+                <div class="field">
+                    <span class="label">Route:</span>
+                    <span class="value">
+                        {% for route in routes %}
+                            {% if route.route_id == exam.route_id %}
+                                {{ route.ELR }}
+                            {% endif %}
+                        {% endfor %}
+                    </span>
+                </div>
+				
+				<div class="field">
+					<span class="label">Start Miles:</span>
+					<span class="value">
+						{% for route in routes %}
+							{% if route.route_id == exam.route_id %}
+								{{ route.start_mileage }}
+							{% endif %}
+						{% endfor %}
+					</span>
+				</div>
+
+				<div class="field">
+					<span class="label">End Miles:</span>
+					<span class="value">
+						{% for route in routes %}
+							{% if route.route_id == exam.route_id %}
+								{{ route.end_mileage }}
+							{% endif %}
+						{% endfor %}
+					</span>
+				</div>			
+			
+				<div class="field">
+					<span class="label">Status:</span>
+					<span class="value">{{ exam.status }}</span>
+				</div>				
+
+                <div class="field">
+                    <span class="label">Exam Date:</span>
+                    <span class="value">{{ exam.date or 'N/A' }}</span>
+                </div>			
+				
+
+                {% if is_admin %}
+                <div class="admin-buttons">
+                    <a href="{{ url_for('delete_exam', exam_id=exam.exam_id) }}">
+                        <button class="btn delete">Delete</button>
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Photos tab -->
+            <div id="photos" class="tab-content">
+                <img src="{{ url_for('static', filename='images/{}.jpg'.format(exam.exam_id)) }}"
+                     alt="Exam photo"
+                     class="photo"
+                     onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/placeholder.png') }}';">
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>No exam data found for this ID.</p>
+    {% endif %}
+
+    <script>
+        function showTab(event, tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            // Show selected tab and activate button
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+    </script>
+</body>
+</html>

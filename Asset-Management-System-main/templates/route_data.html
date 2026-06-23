@@ -1,0 +1,228 @@
+<html>
+<head>
+    <title>Route Data</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f8f9fa;
+        }
+        h2 {
+            color: #333;
+        }
+        .container {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9f2ff;
+        }
+        button, input[type="submit"], select {
+            font-size: 14px;
+        }
+        button {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button.delete {
+            background-color: #dc3545;
+        }
+        button.delete:hover {
+            background-color: #b52d3b;
+        }
+        .back-btn {
+            background-color: #6c757d;
+            margin-bottom: 15px;
+        }
+        .add-section h2 {
+            margin-top: 40px;
+        }
+        input[type="text"], input[type="number"], select {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 4px;
+        }
+    </style>
+
+    <script src="{{ url_for('static', filename='data_changes.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='on_exit.js') }}" defer></script>
+</head>
+<body>
+
+    <a href="/back"><button type="button" class="back-btn">Back</button></a>
+
+    <div class="container">
+        <h2>Route Overview</h2> 
+
+        <form method="GET" action="/route_data" style="margin-bottom: 15px; display:flex; gap:10px; align-items:center;">
+
+            <input type="text" name="search"
+                   placeholder="Route ID..."
+                   value="{{ search_query }}">
+
+            <select name="elr">
+                <option value="">All ELRs</option>
+                {% for r in all_elrs %}
+                    <option value="{{ r['elr'] }}"
+                        {% if selected_elr == r['elr'] %}selected{% endif %}>
+                        {{ r['elr'] }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">Search</button>
+
+            <a href="/route_data">
+                <button type="button">Reset</button>
+            </a>
+
+        </form>
+
+        {% if routes %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Route ID</th>
+                        <th>ELR</th>
+                        <th>Start Mileage</th>
+                        <th>End Mileage</th>
+                        <!--<th>View</th>-->
+                        {% if is_admin %}
+                            <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for route in routes %}
+                    <tr>
+                        <td>{{ route['route_id'] }}</td>
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="text"
+                                  class="track-change"
+                                  name="elr_{{ route['route_id'] }}"
+                                  value="{{ route['elr'] }}"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['ELR'] }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="number"
+                                  step="any"
+                                  class="track-change"
+                                  name="start_mileage_{{ route['route_id'] }}"
+                                  value="{{ route['start_mileage'] }}"
+                                  min="0"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['start_mileage'] }}
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if is_admin %}
+                                <input
+                                  type="number"
+                                  step="any"
+                                  class="track-change"
+                                  name="end_mileage_{{ route['route_id'] }}"
+                                  value="{{ route['end_mileage'] }}"
+                                  min="0"
+                                  form="update-form"
+                                >
+                            {% else %}
+                                {{ route['end_mileage'] }}
+                            {% endif %}
+                        </td>
+
+                        
+                        <!--
+                        Could connect view button to zoom to track section on dashboard map
+                        <td>
+                            <form method="POST" action="/view_route/{{ route['route_id'] }}" style="display:inline;">
+                                <button type="submit">View</button>
+                            </form>
+                        </td>
+                        -->
+
+                        {% if is_admin %}
+                        <td>
+                            <form method="POST" action="/delete_route/{{ route['route_id'] }}" onsubmit="return confirm('Are you sure you want to delete route {{ route['route_id'] }}?');" style="display:inline;">
+                                <button type="submit" class="delete">Delete</button>
+                            </form>
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            
+            
+        {% else %}
+            <p>No route data available.</p>
+        {% endif %}
+    </div>
+
+    <div class="container add-section">
+        <h2>Add New Route</h2>
+        <form action="{{ url_for('add_route') }}" method="POST">
+            <table cellpadding="4">
+                <tr>
+                    <td><label for="elr">ELR:</label></td>
+                    <td><input type="text" name="elr" id="elr" required></td>
+                </tr>
+                <tr>
+                    <td><label for="start_mileage">Start Mileage:</label></td>
+                    <td><input type="number" step="0.001" name="start_mileage" id="start_mileage" required></td>
+                </tr>
+                <tr>
+                    <td><label for="end_mileage">End Mileage:</label></td>
+                    <td><input type="number" step="0.001" name="end_mileage" id="end_mileage" required></td>
+                </tr>
+                <tr>
+                    <td colspan="2" style="text-align: left;">
+                        <br>
+                        <button type="submit">Add Route</button>
+                    </td>
+                </tr>
+            </table>
+        </form>
+    </div>
+
+</body>
+</html>
