@@ -197,7 +197,10 @@ to confirm a valid address and then activate the account.
 
 @app.route('/admin_register', methods=['GET', 'POST'])
 def admin_register():
-    """Admin user registration route"""
+
+    if not admin_status():
+        return redirect(url_for('dashboard'))
+
     if request.method == 'POST':
         email = request.form['email']
         password = request.form['password']
@@ -241,8 +244,8 @@ def dashboard():
 @app.route('/admin_dashboard')
 def admin_dashboard():
     """Admin user dashboard"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
     return render_template('admin_dashboard.html', email=session['email'], name=session['name'])
 
 
@@ -253,18 +256,23 @@ def admin_dashboard():
 
 def admin_status():
     """
-    Check if current user is an admin
-    
+    Check if current user is an admin.
+
     Returns:
         bool: True if current user is admin, False otherwise
     """
+    if 'user_id' not in session:
+        return False
+
     conn = get_db_connection()
-    # FIX: Remove unused variable
-    admin_result = conn.execute('SELECT admin FROM users WHERE user_id = ?', 
-                               (session['user_id'],)).fetchone()
+    admin_result = conn.execute(
+        'SELECT admin FROM users WHERE user_id = ?',
+        (session['user_id'],)
+    ).fetchone()
     conn.close()
-    
-    return admin_result and admin_result['admin'] == 1
+
+    return admin_result is not None and admin_result['admin'] == 1
+     
 
 
 @app.route('/asset_data')
@@ -414,8 +422,8 @@ def add_asset():
 @app.route('/delete_asset/<int:asset_id>', methods=['POST'])
 def delete_asset(asset_id):
     """Delete asset record"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     conn.execute('DELETE FROM assets WHERE asset_id = ?', (asset_id,))
@@ -438,8 +446,8 @@ and deleting a route will delete the associated exam. Cascade delete.
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     """Delete user record"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     conn.execute('DELETE FROM users WHERE user_id = ?', (user_id,))
@@ -478,9 +486,8 @@ def update_user(user_id, user_email, user_admin):
 
 @app.route('/update_users', methods=['POST'])
 def update_users():
-    """Update all user records"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     users = conn.execute('SELECT * FROM users').fetchall()
@@ -649,9 +656,8 @@ def update_exam(exam_id, user_id, route_id, grade, date, compliance_date):
 
 @app.route('/update_exams', methods=['POST'])
 def update_exams():
-    """Update all exam records and recalculate compliance dates"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     exams = conn.execute('SELECT * FROM exams').fetchall()
@@ -702,7 +708,6 @@ def update_exams():
 
 @app.route('/add_exam', methods=['POST'])
 def add_exam():
-    """Add a new exam record"""
     if 'user_id' not in session:
         return redirect(url_for('login'))
 
@@ -725,9 +730,8 @@ def add_exam():
 
 @app.route('/delete_exam/<int:exam_id>', methods=['POST'])
 def delete_exam(exam_id):
-    """Delete exam record"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     conn.execute('DELETE FROM exams WHERE exam_id = ?', (exam_id,))
@@ -848,9 +852,8 @@ def route_data():
 
 @app.route('/delete_route/<int:route_id>', methods=['POST'])
 def delete_route(route_id):
-    """Delete route record"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     conn.execute('DELETE FROM routes WHERE route_id = ?', (route_id,))
@@ -880,8 +883,8 @@ def update_route(route_id, route_elr, route_start_mileage, route_end_mileage):
 @app.route('/update_routes', methods=['POST'])
 def update_routes():
     """Update all route records"""
-    if 'user_id' not in session:  # ADD: Authentication check
-        return redirect(url_for('login'))
+    if not admin_status():
+        return redirect(url_for('dashboard'))
         
     conn = get_db_connection()
     routes = conn.execute('SELECT * FROM routes').fetchall()
